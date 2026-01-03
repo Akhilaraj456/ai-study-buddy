@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from services.pdf_extractor import validate_pdf, extract_text_from_pdf
-
+from services.chunker import chunk_text
+from services.doc_store import save_document
 
 router = APIRouter(tags=["Upload"])
 
@@ -18,18 +19,24 @@ async def upload_pdf(file: UploadFile = File(...)):
 
     # 2) Extract text
     try:
-        # NOTE: UploadFile.file is a file-like object that PdfReader can read
         result = extract_text_from_pdf(file.file)
     except RuntimeError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
     text = result["text"] or ""
-    preview = text[:800]  # keep it short for Phase 1
+    preview = text[:800]
 
+    # 3) Chunk + store
+    chunks = chunk_text(text)
+    doc_id = save_document(file.filename, text, chunks)
+
+    # 4) Return response (now includes doc_id + chunk_count)
     return {
+        "doc_id": doc_id,
         "filename": file.filename,
         "num_pages": result["num_pages"],
         "text_length": len(text),
+        "chunk_count": len(chunks),
         "preview": preview,
         "warnings": result["warnings"],
     }

@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from routes.health import router as health_router
 from routes.upload import router as upload_router
 from fastapi.middleware.cors import CORSMiddleware
+from routes.docs import router as docs_router
+
 
 
 app = FastAPI(title="AI Study Buddy API")
@@ -14,9 +16,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(docs_router)
+
+
 # Health server checker
 app.include_router(health_router)
 
 # Extraction router
 app.include_router(upload_router)
+
 
