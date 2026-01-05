@@ -1,76 +1,49 @@
-from __future__ import annotations
+# backend/services/doc_store.py
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from __future__ import annotations
+from typing import Dict, Any, Optional
 import uuid
 
-
-@dataclass
-class DocumentRecord:
-    doc_id: str
-    filename: str
-    full_text: str
-    chunks: List[str]
-    created_at: str  # ISO timestamp
+# Module-level "in-memory DB"
+# Key: doc_id (str)
+# Value: dict with filename, full_text, chunks, optional num_pages
+_DOC_STORE: Dict[str, Dict[str, Any]] = {}
 
 
-# Simple in-memory store (resets when backend restarts)
-_DOC_STORE: Dict[str, DocumentRecord] = {}
-
-
-def save_document(filename: str, full_text: str, chunks: List[str]) -> str:
+def save_document(
+    filename: str,
+    full_text: str,
+    chunks: list[str],
+    num_pages: int | None = None,
+) -> str:
     """
-    Save the document and its chunks in an in-memory store.
-
-    Args:
-        filename: Original uploaded filename.
-        full_text: Full extracted text.
-        chunks: List of chunk strings.
-
-    Returns:
-        A unique document id (doc_id).
+    Save a processed document in memory and return a unique doc_id.
     """
-    if not filename:
-        raise ValueError("filename is required")
-
-    if not isinstance(full_text, str):
-        raise TypeError("full_text must be a string")
-
-    if not isinstance(chunks, list) or not all(isinstance(c, str) for c in chunks):
-        raise TypeError("chunks must be a list of strings")
-
     doc_id = str(uuid.uuid4())
-    created_at = datetime.now(timezone.utc).isoformat()
 
-    _DOC_STORE[doc_id] = DocumentRecord(
-        doc_id=doc_id,
-        filename=filename,
-        full_text=full_text,
-        chunks=chunks,
-        created_at=created_at,
-    )
+    doc: Dict[str, Any] = {
+        "doc_id": doc_id,
+        "filename": filename,
+        "full_text": full_text,
+        "chunks": chunks,
+    }
 
+    if num_pages is not None:
+        doc["num_pages"] = num_pages
+
+    _DOC_STORE[doc_id] = doc
     return doc_id
 
 
-def get_document(doc_id: str) -> Optional[dict]:
+def get_document(doc_id: str) -> Optional[Dict[str, Any]]:
     """
-    Retrieve a document by id.
-
-    Returns:
-        dict with document data, or None if not found.
+    Return the stored document dict, or None if not found.
     """
-    record = _DOC_STORE.get(doc_id)
-    if record is None:
-        return None
+    return _DOC_STORE.get(doc_id)
 
-    # Return a plain dict (easy to JSON-serialize in routes)
-    return {
-        "doc_id": record.doc_id,
-        "filename": record.filename,
-        "full_text": record.full_text,
-        "chunks": record.chunks,
-        "chunk_count": len(record.chunks),
-        "created_at": record.created_at,
-    }
+
+def clear_store() -> None:
+    """
+    Optional helper for debugging/tests.
+    """
+    _DOC_STORE.clear()

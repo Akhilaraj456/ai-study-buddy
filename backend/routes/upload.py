@@ -26,11 +26,16 @@ async def upload_pdf(file: UploadFile = File(...)):
     text = result["text"] or ""
     preview = text[:800]
 
-    # 3) Chunk + store
+    # 3) Chunk + store  ✅ (ONLY ONCE)
     chunks = chunk_text(text)
-    doc_id = save_document(file.filename, text, chunks)
+    doc_id = save_document(
+        filename=file.filename,
+        full_text=text,
+        chunks=chunks,
+        num_pages=result["num_pages"],  # optional
+    )
 
-    # 4) Return response (now includes doc_id + chunk_count)
+    # 4) Return response
     return {
         "doc_id": doc_id,
         "filename": file.filename,
@@ -40,3 +45,4 @@ async def upload_pdf(file: UploadFile = File(...)):
         "preview": preview,
         "warnings": result["warnings"],
     }
+
